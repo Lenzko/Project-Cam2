@@ -5,7 +5,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Digit Scanner Google Sheet</title>
+<title>Digit Scanner</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -27,16 +27,14 @@ position:relative;
 width:95%;
 max-width:700px;
 margin:auto;
-overflow:hidden;
 border-radius:20px;
+overflow:hidden;
 
 }
 
 
 video{
-
 width:100%;
-
 }
 
 
@@ -45,15 +43,13 @@ width:100%;
 
 position:absolute;
 
-width:45%;
-height:20%;
+width:30%;
+height:25%;
 
-left:27.5%;
-top:40%;
+left:35%;
+top:37%;
 
 border:4px solid #00ff00;
-
-box-sizing:border-box;
 
 }
 
@@ -65,7 +61,6 @@ font-size:40px;
 margin:20px;
 
 }
-
 
 
 #info{
@@ -89,7 +84,6 @@ border-radius:50%;
 }
 
 
-
 canvas{
 display:none;
 }
@@ -97,8 +91,8 @@ display:none;
 
 </style>
 
-
 </head>
+
 
 
 <body>
@@ -125,7 +119,6 @@ display:none;
 </div>
 
 
-
 <div id="info">
 Tekan kamera
 </div>
@@ -139,6 +132,7 @@ Tekan kamera
 
 
 <canvas id="canvas"></canvas>
+
 
 
 
@@ -172,6 +166,7 @@ let worker;
 
 let aktif=false;
 
+let streamCamera=null;
 
 
 
@@ -183,8 +178,39 @@ async function start(){
 if(aktif)return;
 
 
+aktif=true;
 
-const stream =
+
+worker =
+await Tesseract.createWorker("eng");
+
+
+await worker.setParameters({
+
+tessedit_char_whitelist:
+"0123456789"
+
+});
+
+
+info.innerHTML =
+"Scanner aktif";
+
+
+scan();
+
+
+}
+
+
+
+
+
+
+async function bukaKamera(){
+
+
+streamCamera =
 await navigator.mediaDevices.getUserMedia({
 
 video:{
@@ -205,46 +231,45 @@ ideal:1080
 
 
 
-video.srcObject=stream;
+video.srcObject =
+streamCamera;
 
 
 
-video.onloadedmetadata=async()=>{
+await new Promise(resolve=>{
 
-
-
-worker =
-await Tesseract.createWorker("eng");
-
-
-
-await worker.setParameters({
-
-tessedit_char_whitelist:
-"0123456789"
+video.onloadedmetadata=resolve;
 
 });
 
 
-
-aktif=true;
-
-
-
-info.innerHTML =
-"Scanner aktif";
-
-
-scan();
+}
 
 
 
-};
 
+
+function matikanKamera(){
+
+
+if(streamCamera){
+
+
+streamCamera
+.getTracks()
+.forEach(t=>t.stop());
+
+
+streamCamera=null;
 
 
 }
 
+
+video.srcObject=null;
+
+
+}
 
 
 
@@ -256,7 +281,6 @@ scan();
 async function scan(){
 
 
-
 while(aktif){
 
 
@@ -264,66 +288,64 @@ let mulai =
 Date.now();
 
 
-
-let best=null;
-
+await bukaKamera();
 
 
-info.innerHTML =
-"📷 Mengambil foto...";
+await sleep(1000);
 
 
 
+let hasilScan=null;
 
-// 3 kali ambil gambar
+
 
 for(let i=0;i<3;i++){
 
 
 info.innerHTML =
-"🔍 Scan gambar "+(i+1)+"/3";
+"🔍 Scan "+(i+1)+"/3";
 
 
-let r =
+let data =
 await capture();
 
 
 
-if(
-r &&
-(!best ||
-r.confidence>best.confidence)
-){
+if(data){
 
-best=r;
+hasilScan=data;
+
+break;
+
+}
+
+
+await sleep(300);
+
 
 }
 
 
 
-await sleep(500);
 
-
-
-}
+matikanKamera();
 
 
 
 
 
-if(best){
+if(hasilScan){
 
 
 hasil.innerHTML =
-"Angka : "+best.angka;
-
+"Angka : "+hasilScan.angka;
 
 
 info.innerHTML =
-"📤 Mengirim data...";
+"✅ Data masuk Sheet";
 
 
-sendSheet(best);
+sendSheet(hasilScan);
 
 
 
@@ -335,11 +357,10 @@ hasil.innerHTML =
 
 
 info.innerHTML =
-"⚠️ Tidak terbaca";
+"⚠️ Ulang scan";
 
 
 }
-
 
 
 
@@ -349,32 +370,26 @@ let waktu =
 Date.now()-mulai;
 
 
-
 let tunggu =
 60000-waktu;
-
 
 
 if(tunggu<1000)
 tunggu=1000;
 
 
-
 await sleep(tunggu);
-
 
 
 info.innerHTML =
 "⏳ Menunggu scan berikutnya";
 
 
-
 }
 
 
 
 }
-
 
 
 
@@ -420,11 +435,13 @@ canvas.height
 
 
 
-// crop area
+
+
+// crop lebih fokus
+
 
 let crop =
 document.createElement("canvas");
-
 
 
 let c =
@@ -433,11 +450,11 @@ crop.getContext("2d");
 
 
 let w =
-canvas.width*0.45;
+canvas.width*0.30;
 
 
 let h =
-canvas.height*0.20;
+canvas.height*0.25;
 
 
 
@@ -452,9 +469,9 @@ c.drawImage(
 canvas,
 
 
-canvas.width*0.275,
+canvas.width*0.35,
 
-canvas.height*0.40,
+canvas.height*0.37,
 
 
 w,
@@ -479,7 +496,7 @@ h
 
 
 
-// pixel processing
+// ambil pixel
 
 
 let img =
@@ -494,7 +511,6 @@ w,
 h
 
 );
-
 
 
 let d =
@@ -534,6 +550,10 @@ total/(d.length/4);
 
 
 
+
+// threshold + hilangkan noise
+
+
 for(
 let i=0;
 i<d.length;
@@ -547,9 +567,12 @@ let gray =
 0.114*d[i+2];
 
 
-
 let value =
-gray>avg ? 255 : 0;
+gray<avg
+?
+0
+:
+255;
 
 
 
@@ -566,18 +589,15 @@ d[i+2]=value;
 
 
 
-c.putImageData(
-img,
-0,
-0
-);
+c.putImageData(img,0,0);
 
 
 
 
 
 
-// resize
+// perbesar
+
 
 let big =
 document.createElement("canvas");
@@ -627,7 +647,6 @@ await worker.recognize(big);
 
 
 
-
 let angka="";
 
 let confidence=0;
@@ -647,8 +666,11 @@ w.text.replace(
 
 
 if(
+
 t &&
+
 w.confidence>confidence
+
 ){
 
 
@@ -660,22 +682,32 @@ confidence=w.confidence;
 }
 
 
-
 });
 
 
 
 
 
+
+
+// filter angka palsu
+
+
 if(
+
 angka &&
-confidence>=65
+
+angka!=="1" &&
+
+confidence>=75
+
 ){
 
 
-return{
+return {
 
 angka,
+
 confidence
 
 };
@@ -688,7 +720,6 @@ confidence
 return null;
 
 
-
 }
 
 
@@ -698,9 +729,7 @@ return null;
 
 
 
-
 function sendSheet(data){
-
 
 
 fetch(
@@ -713,7 +742,6 @@ method:"POST",
 
 mode:"no-cors",
 
-
 body:JSON.stringify({
 
 angka:data.angka,
@@ -722,32 +750,14 @@ confidence:data.confidence,
 
 waktu:new Date().toLocaleString()
 
-
 })
 
 }
 
-)
-.then(()=>{
-
-
-info.innerHTML =
-"✅ Data masuk Sheet";
-
-
-})
-.catch(()=>{
-
-
-info.innerHTML =
-"❌ Gagal kirim";
-
-
-});
+);
 
 
 }
-
 
 
 
@@ -758,7 +768,7 @@ function sleep(ms){
 
 return new Promise(
 
-resolve=>setTimeout(resolve,ms)
+r=>setTimeout(r,ms)
 
 );
 
