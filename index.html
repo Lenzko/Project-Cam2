@@ -3,9 +3,7 @@
 
 <head>
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>High Accuracy Digit Scanner</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -13,7 +11,6 @@
 <style>
 
 body{
-margin:0;
 background:#111;
 color:white;
 font-family:Arial;
@@ -24,15 +21,9 @@ text-align:center;
 .camera{
 
 position:relative;
-
 width:95%;
-max-width:700px;
-
+max-width:800px;
 margin:auto;
-
-overflow:hidden;
-
-border-radius:20px;
 
 }
 
@@ -45,35 +36,25 @@ width:100%;
 
 
 
-#target{
+#box{
 
 position:absolute;
 
-width:75%;
+top:30%;
+left:10%;
+
+width:80%;
 height:35%;
 
-left:12.5%;
-top:32%;
-
-border:4px solid #00ff00;
+border:4px solid lime;
 
 }
 
 
 
-#result{
+#hasil{
 
 font-size:40px;
-
-margin:20px;
-
-}
-
-
-
-#info{
-
-color:#00ff00;
 
 }
 
@@ -81,59 +62,45 @@ color:#00ff00;
 
 button{
 
+font-size:40px;
+
 width:90px;
 height:90px;
-
-font-size:40px;
 
 border-radius:50%;
 
 }
-
-
-
-canvas{
-display:none;
-}
-
 
 </style>
 
 </head>
 
 
+
 <body>
 
 
-<h2>📷 AI Digit Scanner</h2>
+<h2>AI Pixel Digit Scanner</h2>
 
 
 
 <div class="camera">
 
+<video id="video"
+autoplay
+playsinline></video>
 
-<video id="video" autoplay playsinline></video>
 
-
-<div id="target"></div>
-
+<div id="box"></div>
 
 </div>
 
 
 
-<div id="result">
--
-</div>
+<h1 id="hasil">-</h1>
 
 
-<div id="info">
-Tekan kamera
-</div>
-
-
-
-<button onclick="startCamera()">
+<button onclick="start()">
 📷
 </button>
 
@@ -144,24 +111,26 @@ Tekan kamera
 
 
 
+
+
 <script>
 
 
-const video =
+const SHEET_URL =
+"https://script.google.com/macros/s/AKfycbzUjVh_iKrtbDJ1TzoN-xdWG110bTAV8IWwVZA8qSkOYINaM1rsHXVF4eBivrU0MOUm/exec";
+
+
+
+let video =
 document.getElementById("video");
 
 
-const canvas =
+let canvas =
 document.getElementById("canvas");
 
 
-const result =
-document.getElementById("result");
-
-
-const info =
-document.getElementById("info");
-
+let hasil =
+document.getElementById("hasil");
 
 
 let worker;
@@ -170,17 +139,10 @@ let aktif=false;
 
 
 
-let retry=0;
 
 
 
-
-
-async function startCamera(){
-
-
-if(aktif)return;
-
+async function start(){
 
 
 let stream =
@@ -192,11 +154,9 @@ video:{
 
 facingMode:"environment",
 
-
 width:{
 ideal:1920
 },
-
 
 height:{
 ideal:1080
@@ -204,7 +164,6 @@ ideal:1080
 
 
 }
-
 
 });
 
@@ -218,17 +177,18 @@ video.onloadedmetadata=async()=>{
 
 
 worker =
-await Tesseract.createWorker("eng");
+await Tesseract
+.createWorker("eng");
+
 
 
 await worker.setParameters({
 
 tessedit_char_whitelist:
-"0123456789",
+"0123456789"
 
 
 });
-
 
 
 aktif=true;
@@ -237,12 +197,10 @@ aktif=true;
 scan();
 
 
-};
-
+}
 
 
 }
-
 
 
 
@@ -254,71 +212,76 @@ async function scan(){
 
 
 
-if(!aktif)return;
+while(aktif){
 
 
 
-info.innerHTML =
-"Memindai...";
+let best=null;
+
+
+
+// ambil 3 foto voting
+
+for(let i=0;i<3;i++){
+
+
+let r =
+await capture();
+
+
+
+if(r &&
+(!best ||
+r.confidence>best.confidence)
+){
+
+
+best=r;
+
+
+}
+
+
+
+await sleep(500);
+
+
+}
 
 
 
 
-
-let output =
-await takePicture();
+if(best){
 
 
-
-
-
-if(output){
-
-
-result.innerHTML =
-output;
+hasil.innerHTML =
+best.angka;
 
 
 
-info.innerHTML =
-"Scan ulang 10 detik";
+sendSheet(best);
 
 
 
-retry=0;
-
-
-setTimeout(
-scan,
-10000
-);
-
+sleep(10000);
 
 
 }else{
 
 
-retry++;
-
-
-info.innerHTML =
-"Angka tidak terbaca, ulang "+retry;
+hasil.innerHTML =
+"ulang...";
 
 
 
-// langsung ulang
-
-setTimeout(
-
-scan,
-
-300
-
-);
+sleep(300);
 
 
 }
 
+
+
+}
 
 
 }
@@ -331,7 +294,7 @@ scan,
 
 
 
-async function takePicture(){
+async function capture(){
 
 
 
@@ -353,8 +316,7 @@ ctx.drawImage(
 
 video,
 
-0,
-0,
+0,0,
 
 canvas.width,
 canvas.height
@@ -365,19 +327,19 @@ canvas.height
 
 
 
-// crop target
+// crop
 
 let crop =
 document.createElement("canvas");
 
 
-let cc =
+let c =
 crop.getContext("2d");
 
 
 
 let w =
-canvas.width*0.75;
+canvas.width*0.8;
 
 
 let h =
@@ -391,24 +353,21 @@ crop.height=h;
 
 
 
-cc.drawImage(
+c.drawImage(
 
 canvas,
 
 
-canvas.width*0.125,
+canvas.width*0.1,
 
-canvas.height*0.32,
+canvas.height*0.3,
 
-w,
-h,
+w,h,
 
 
-0,
-0,
+0,0,
 
-w,
-h
+w,h
 
 );
 
@@ -417,18 +376,15 @@ h
 
 
 
-
-// preprocessing
+// pixel enhancement
 
 
 let img =
-cc.getImageData(
+c.getImageData(
 
-0,
-0,
+0,0,
 
-crop.width,
-crop.height
+w,h
 
 );
 
@@ -446,23 +402,27 @@ i+=4
 ){
 
 
+
 let gray =
-(
-d[i]+d[i+1]+d[i+2]
-)/3;
+
+0.299*d[i]+
+0.587*d[i+1]+
+0.114*d[i+2];
 
 
 
-// threshold adaptif
+// threshold
 
-let value =
-gray>140 ? 255 : 0;
+let v =
+gray>150 ? 255 : 0;
 
 
 
-d[i]=value;
-d[i+1]=value;
-d[i+2]=value;
+d[i]=v;
+
+d[i+1]=v;
+
+d[i+2]=v;
 
 
 
@@ -470,54 +430,42 @@ d[i+2]=value;
 
 
 
-cc.putImageData(
-img,
-0,
-0
-);
+c.putImageData(img,0,0);
 
 
 
 
 
+// upscale 5x
 
-
-// upscale besar
 
 let big =
 document.createElement("canvas");
 
 
-big.width =
-crop.width*4;
+big.width=w*5;
 
-
-big.height =
-crop.height*4;
+big.height=h*5;
 
 
 
-let bc =
+let b =
 big.getContext("2d");
 
 
-
-bc.imageSmoothingEnabled=false;
-
+b.imageSmoothingEnabled=false;
 
 
-bc.drawImage(
+b.drawImage(
 
 crop,
 
-0,
-0,
+0,0,
 
 big.width,
 big.height
 
 );
-
 
 
 
@@ -531,36 +479,32 @@ await worker.recognize(big);
 
 
 
-let best="";
+let angka="";
 
-let confidence=0;
+let conf=0;
 
 
 
 data.data.words.forEach(w=>{
 
 
-let text =
+let t =
 w.text.replace(/\D/g,"");
 
 
 
 if(
-
-text.length>0 &&
-
-w.confidence>confidence
-
+t &&
+w.confidence>conf
 ){
 
 
-best=text;
+angka=t;
 
-confidence=w.confidence;
+conf=w.confidence;
 
 
 }
-
 
 
 });
@@ -569,22 +513,19 @@ confidence=w.confidence;
 
 
 
-
-// validasi
-
-
 if(
-
-best.length>=1 &&
-
-best.length<=6 &&
-
-confidence>=70
-
+angka &&
+conf>75
 ){
 
 
-return best;
+return{
+
+angka:angka,
+
+confidence:conf
+
+};
 
 
 }
@@ -597,6 +538,43 @@ return null;
 
 }
 
+
+
+
+
+
+function sendSheet(data){
+
+
+fetch(
+
+SHEET_URL,
+
+{
+
+method:"POST",
+
+body:JSON.stringify(data)
+
+}
+
+);
+
+
+}
+
+
+
+
+
+
+function sleep(ms){
+
+return new Promise(
+r=>setTimeout(r,ms)
+);
+
+}
 
 
 
