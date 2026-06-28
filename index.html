@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 
@@ -6,7 +5,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>1 Minute Number Scanner</title>
+<title>Accurate Number Scanner</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -27,14 +26,16 @@ text-align:center;
 position:relative;
 
 width:95%;
-max-width:600px;
+max-width:700px;
 
 margin:auto;
 
-border-radius:20px;
 overflow:hidden;
 
+border-radius:20px;
+
 }
+
 
 
 video{
@@ -45,25 +46,23 @@ width:100%;
 
 
 
-#box{
+#target{
 
 position:absolute;
 
-width:80%;
-height:60%;
+width:70%;
+height:35%;
 
-top:20%;
-left:10%;
+left:15%;
+top:32%;
 
-border:3px solid #00ff00;
-
-box-sizing:border-box;
+border:4px solid #00ff00;
 
 }
 
 
 
-#hasil{
+#result{
 
 font-size:35px;
 margin:20px;
@@ -72,7 +71,7 @@ margin:20px;
 
 
 
-#status{
+#info{
 
 color:#00ff00;
 
@@ -82,10 +81,10 @@ color:#00ff00;
 
 button{
 
-font-size:35px;
-
 width:90px;
 height:90px;
+
+font-size:40px;
 
 border-radius:50%;
 
@@ -105,10 +104,11 @@ display:none;
 </head>
 
 
+
 <body>
 
 
-<h2>📷 Scan Angka Tiap 1 Menit</h2>
+<h2>📷 Accurate Digit Scanner</h2>
 
 
 
@@ -118,31 +118,31 @@ display:none;
 <video id="video" autoplay playsinline></video>
 
 
-<div id="box"></div>
+<div id="target"></div>
 
 
 </div>
 
 
 
-<div id="hasil">
-Angka : -
+<div id="result">
+-
 </div>
 
 
-<div id="status">
-Belum aktif
+<div id="info">
+Tekan kamera
 </div>
 
 
 
-<button onclick="start()">
+<button onclick="startCamera()">
 📷
 </button>
 
 
 
-<canvas id="foto"></canvas>
+<canvas id="canvas"></canvas>
 
 
 
@@ -155,15 +155,15 @@ document.getElementById("video");
 
 
 const canvas =
-document.getElementById("foto");
+document.getElementById("canvas");
 
 
-const hasil =
-document.getElementById("hasil");
+const result =
+document.getElementById("result");
 
 
-const status =
-document.getElementById("status");
+const info =
+document.getElementById("info");
 
 
 
@@ -173,30 +173,37 @@ let aktif=false;
 
 
 
-async function start(){
+
+
+
+async function startCamera(){
 
 
 if(aktif)return;
 
 
 
-const stream =
+let stream =
 await navigator.mediaDevices.getUserMedia({
 
 video:{
 
+
 facingMode:"environment",
 
+
 width:{
-ideal:1280
+ideal:1920
 },
 
+
 height:{
-ideal:720
+ideal:1080
 }
 
 
 }
+
 
 });
 
@@ -220,9 +227,6 @@ tessedit_char_whitelist:
 "0123456789",
 
 
-preserve_interword_spaces:true
-
-
 });
 
 
@@ -230,11 +234,7 @@ preserve_interword_spaces:true
 aktif=true;
 
 
-status.innerHTML =
-"Scanner aktif";
-
-
-scanFoto();
+scan();
 
 
 };
@@ -249,19 +249,21 @@ scanFoto();
 
 
 
-async function scanFoto(){
+async function scan(){
 
 
 if(!aktif)return;
 
 
 
-status.innerHTML =
-"Mengambil foto...";
+info.innerHTML =
+"Ambil gambar...";
 
 
 
-// ukuran foto
+
+// foto asli
+
 
 canvas.width =
 video.videoWidth;
@@ -293,132 +295,169 @@ canvas.height
 
 
 
-status.innerHTML =
-"Memproses OCR...";
+
+// crop area target
+
+
+let crop =
+document.createElement("canvas");
+
+
+let cctx =
+crop.getContext("2d");
 
 
 
-// preprocessing
+let w =
+canvas.width*0.7;
 
-let img =
-ctx.getImageData(
+
+let h =
+canvas.height*0.35;
+
+
+
+crop.width=w;
+
+crop.height=h;
+
+
+
+cctx.drawImage(
+
+canvas,
+
+
+canvas.width*0.15,
+
+canvas.height*0.32,
+
+w,
+h,
 
 0,
 0,
 
-canvas.width,
-canvas.height
+w,
+h
 
 );
 
 
 
-let d =
-img.data;
+
+
+// perbesar
+
+let big =
+document.createElement("canvas");
+
+
+big.width =
+crop.width*3;
+
+
+big.height =
+crop.height*3;
 
 
 
-for(
-let i=0;
-i<d.length;
-i+=4
+let b =
+big.getContext("2d");
+
+
+b.imageSmoothingEnabled=false;
+
+
+b.drawImage(
+
+crop,
+
+0,
+0,
+
+big.width,
+big.height
+
+);
+
+
+
+
+
+
+
+// OCR
+
+
+let data =
+await worker.recognize(big);
+
+
+
+
+let angka=[];
+
+
+
+data.data.words.forEach(w=>{
+
+
+let text =
+w.text.replace(/\D/g,"");
+
+
+
+if(
+text &&
+w.confidence>70
 ){
 
-
-let gray =
-(
-d[i]+d[i+1]+d[i+2]
-)/3;
-
-
-
-let v =
-gray < 150 ? 0 : 255;
-
-
-
-d[i]=v;
-d[i+1]=v;
-d[i+2]=v;
-
+angka.push(text);
 
 }
 
 
-
-ctx.putImageData(
-img,
-0,
-0
-);
+});
 
 
 
 
 
 
-// OCR foto penuh
+if(angka.length){
 
 
-let res =
-await worker.recognize(canvas);
+result.innerHTML =
+angka.join(" ");
 
-
-
-let teks =
-res.data.text;
-
-
-
-let angka =
-teks.replace(
-/[^0-9]/g,
-""
-);
-
-
-
-
-
-
-if(angka){
-
-
-hasil.innerHTML =
-"Angka : "+angka;
 
 
 }else{
 
 
-hasil.innerHTML =
-"Angka : tidak ditemukan";
+result.innerHTML =
+"Tidak terbaca";
 
 
 }
 
 
 
-status.innerHTML =
-"Scan berikutnya 60 detik";
+info.innerHTML =
+"Scan ulang 10 detik";
 
-
-
-
-// ulang 1 menit
 
 
 setTimeout(
-
-scanFoto,
-
-60000
-
+scan,
+10000
 );
 
 
-
 }
+
+
 
 
 
