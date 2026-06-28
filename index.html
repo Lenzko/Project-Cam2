@@ -36,17 +36,17 @@ width:100%;
 
 
 
-#box{
+#target{
 
 position:absolute;
 
-top:30%;
-left:10%;
+width:45%;
+height:20%;
 
-width:80%;
-height:35%;
+left:27.5%;
+top:40%;
 
-border:4px solid lime;
+border:4px solid #00ff00;
 
 }
 
@@ -297,7 +297,6 @@ sleep(300);
 async function capture(){
 
 
-
 canvas.width =
 video.videoWidth;
 
@@ -306,28 +305,23 @@ canvas.height =
 video.videoHeight;
 
 
-
 let ctx =
 canvas.getContext("2d");
 
 
 
 ctx.drawImage(
-
 video,
-
-0,0,
-
+0,
+0,
 canvas.width,
 canvas.height
-
 );
 
 
 
+// ===== CROP KOTAK KECIL =====
 
-
-// crop
 
 let crop =
 document.createElement("canvas");
@@ -339,11 +333,11 @@ crop.getContext("2d");
 
 
 let w =
-canvas.width*0.8;
+canvas.width*0.45;
 
 
 let h =
-canvas.height*0.35;
+canvas.height*0.20;
 
 
 
@@ -357,17 +351,18 @@ c.drawImage(
 
 canvas,
 
+canvas.width*0.275,
 
-canvas.width*0.1,
+canvas.height*0.40,
 
-canvas.height*0.3,
+w,
+h,
 
-w,h,
+0,
+0,
 
-
-0,0,
-
-w,h
+w,
+h
 
 );
 
@@ -376,22 +371,68 @@ w,h
 
 
 
-// pixel enhancement
+// ===== AMBIL PIXEL =====
 
 
 let img =
 c.getImageData(
 
-0,0,
+0,
+0,
 
-w,h
+w,
+h
 
 );
 
 
-
 let d =
 img.data;
+
+
+
+
+// cari rata-rata cahaya
+
+let total=0;
+
+let count=0;
+
+
+
+for(
+let i=0;
+i<d.length;
+i+=4
+){
+
+
+let gray =
+(
+d[i]+d[i+1]+d[i+2]
+)/3;
+
+
+total+=gray;
+
+count++;
+
+
+}
+
+
+
+let avg =
+total/count;
+
+
+
+
+// adaptive threshold
+
+let threshold =
+avg;
+
 
 
 
@@ -411,41 +452,55 @@ let gray =
 
 
 
-// threshold
 
-let v =
-gray>150 ? 255 : 0;
+// otomatis mengikuti kondisi gambar
+
+let value =
+gray > threshold
+?
+255
+:
+0;
 
 
 
-d[i]=v;
 
-d[i+1]=v;
+d[i]=value;
 
-d[i+2]=v;
+d[i+1]=value;
 
+d[i+2]=value;
 
 
 }
 
 
 
-c.putImageData(img,0,0);
+c.putImageData(
+img,
+0,
+0
+);
 
 
 
 
 
-// upscale 5x
+
+
+// ===== UPSCALE 6X =====
 
 
 let big =
 document.createElement("canvas");
 
 
-big.width=w*5;
+big.width =
+crop.width*6;
 
-big.height=h*5;
+
+big.height =
+crop.height*6;
 
 
 
@@ -453,14 +508,17 @@ let b =
 big.getContext("2d");
 
 
+
 b.imageSmoothingEnabled=false;
+
 
 
 b.drawImage(
 
 crop,
 
-0,0,
+0,
+0,
 
 big.width,
 big.height
@@ -472,14 +530,15 @@ big.height
 
 
 
+// OCR
+
 
 let data =
 await worker.recognize(big);
 
 
 
-
-let angka="";
+let best="";
 
 let conf=0;
 
@@ -489,20 +548,23 @@ data.data.words.forEach(w=>{
 
 
 let t =
-w.text.replace(/\D/g,"");
+w.text.replace(
+/[^0-9]/g,
+""
+);
 
 
 
 if(
+
 t &&
 w.confidence>conf
+
 ){
 
-
-angka=t;
+best=t;
 
 conf=w.confidence;
-
 
 }
 
@@ -513,15 +575,18 @@ conf=w.confidence;
 
 
 
+
 if(
-angka &&
-conf>75
+
+best &&
+conf>=65
+
 ){
 
 
 return{
 
-angka:angka,
+angka:best,
 
 confidence:conf
 
@@ -535,9 +600,7 @@ confidence:conf
 return null;
 
 
-
 }
-
 
 
 
