@@ -1,1 +1,430 @@
 
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>1 Minute Number Scanner</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+
+<style>
+
+body{
+margin:0;
+background:#111;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+
+
+.camera{
+
+position:relative;
+
+width:95%;
+max-width:600px;
+
+margin:auto;
+
+border-radius:20px;
+overflow:hidden;
+
+}
+
+
+video{
+
+width:100%;
+
+}
+
+
+
+#box{
+
+position:absolute;
+
+width:80%;
+height:60%;
+
+top:20%;
+left:10%;
+
+border:3px solid #00ff00;
+
+box-sizing:border-box;
+
+}
+
+
+
+#hasil{
+
+font-size:35px;
+margin:20px;
+
+}
+
+
+
+#status{
+
+color:#00ff00;
+
+}
+
+
+
+button{
+
+font-size:35px;
+
+width:90px;
+height:90px;
+
+border-radius:50%;
+
+}
+
+
+
+canvas{
+
+display:none;
+
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<h2>📷 Scan Angka Tiap 1 Menit</h2>
+
+
+
+<div class="camera">
+
+
+<video id="video" autoplay playsinline></video>
+
+
+<div id="box"></div>
+
+
+</div>
+
+
+
+<div id="hasil">
+Angka : -
+</div>
+
+
+<div id="status">
+Belum aktif
+</div>
+
+
+
+<button onclick="start()">
+📷
+</button>
+
+
+
+<canvas id="foto"></canvas>
+
+
+
+
+<script>
+
+
+const video =
+document.getElementById("video");
+
+
+const canvas =
+document.getElementById("foto");
+
+
+const hasil =
+document.getElementById("hasil");
+
+
+const status =
+document.getElementById("status");
+
+
+
+let worker;
+
+let aktif=false;
+
+
+
+async function start(){
+
+
+if(aktif)return;
+
+
+
+const stream =
+await navigator.mediaDevices.getUserMedia({
+
+video:{
+
+facingMode:"environment",
+
+width:{
+ideal:1280
+},
+
+height:{
+ideal:720
+}
+
+
+}
+
+});
+
+
+
+video.srcObject=stream;
+
+
+
+video.onloadedmetadata=async()=>{
+
+
+worker =
+await Tesseract.createWorker("eng");
+
+
+
+await worker.setParameters({
+
+tessedit_char_whitelist:
+"0123456789",
+
+
+preserve_interword_spaces:true
+
+
+});
+
+
+
+aktif=true;
+
+
+status.innerHTML =
+"Scanner aktif";
+
+
+scanFoto();
+
+
+};
+
+
+}
+
+
+
+
+
+
+
+
+async function scanFoto(){
+
+
+if(!aktif)return;
+
+
+
+status.innerHTML =
+"Mengambil foto...";
+
+
+
+// ukuran foto
+
+canvas.width =
+video.videoWidth;
+
+
+canvas.height =
+video.videoHeight;
+
+
+
+let ctx =
+canvas.getContext("2d");
+
+
+
+ctx.drawImage(
+
+video,
+
+0,
+0,
+
+canvas.width,
+canvas.height
+
+);
+
+
+
+
+
+status.innerHTML =
+"Memproses OCR...";
+
+
+
+// preprocessing
+
+let img =
+ctx.getImageData(
+
+0,
+0,
+
+canvas.width,
+canvas.height
+
+);
+
+
+
+let d =
+img.data;
+
+
+
+for(
+let i=0;
+i<d.length;
+i+=4
+){
+
+
+let gray =
+(
+d[i]+d[i+1]+d[i+2]
+)/3;
+
+
+
+let v =
+gray < 150 ? 0 : 255;
+
+
+
+d[i]=v;
+d[i+1]=v;
+d[i+2]=v;
+
+
+}
+
+
+
+ctx.putImageData(
+img,
+0,
+0
+);
+
+
+
+
+
+
+// OCR foto penuh
+
+
+let res =
+await worker.recognize(canvas);
+
+
+
+let teks =
+res.data.text;
+
+
+
+let angka =
+teks.replace(
+/[^0-9]/g,
+""
+);
+
+
+
+
+
+
+if(angka){
+
+
+hasil.innerHTML =
+"Angka : "+angka;
+
+
+}else{
+
+
+hasil.innerHTML =
+"Angka : tidak ditemukan";
+
+
+}
+
+
+
+status.innerHTML =
+"Scan berikutnya 60 detik";
+
+
+
+
+// ulang 1 menit
+
+
+setTimeout(
+
+scanFoto,
+
+60000
+
+);
+
+
+
+}
+
+
+
+</script>
+
+
+</body>
+
+</html>
