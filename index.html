@@ -5,7 +5,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Accurate Number Scanner</title>
+<title>High Accuracy Digit Scanner</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -37,7 +37,6 @@ border-radius:20px;
 }
 
 
-
 video{
 
 width:100%;
@@ -50,10 +49,10 @@ width:100%;
 
 position:absolute;
 
-width:70%;
+width:75%;
 height:35%;
 
-left:15%;
+left:12.5%;
 top:32%;
 
 border:4px solid #00ff00;
@@ -64,7 +63,8 @@ border:4px solid #00ff00;
 
 #result{
 
-font-size:35px;
+font-size:40px;
+
 margin:20px;
 
 }
@@ -93,9 +93,7 @@ border-radius:50%;
 
 
 canvas{
-
 display:none;
-
 }
 
 
@@ -104,11 +102,10 @@ display:none;
 </head>
 
 
-
 <body>
 
 
-<h2>📷 Accurate Digit Scanner</h2>
+<h2>📷 AI Digit Scanner</h2>
 
 
 
@@ -173,6 +170,9 @@ let aktif=false;
 
 
 
+let retry=0;
+
+
 
 
 
@@ -185,6 +185,7 @@ if(aktif)return;
 
 let stream =
 await navigator.mediaDevices.getUserMedia({
+
 
 video:{
 
@@ -220,7 +221,6 @@ worker =
 await Tesseract.createWorker("eng");
 
 
-
 await worker.setParameters({
 
 tessedit_char_whitelist:
@@ -240,6 +240,7 @@ scan();
 };
 
 
+
 }
 
 
@@ -252,17 +253,86 @@ scan();
 async function scan(){
 
 
+
 if(!aktif)return;
 
 
 
 info.innerHTML =
-"Ambil gambar...";
+"Memindai...";
 
 
 
 
-// foto asli
+
+let output =
+await takePicture();
+
+
+
+
+
+if(output){
+
+
+result.innerHTML =
+output;
+
+
+
+info.innerHTML =
+"Scan ulang 10 detik";
+
+
+
+retry=0;
+
+
+setTimeout(
+scan,
+10000
+);
+
+
+
+}else{
+
+
+retry++;
+
+
+info.innerHTML =
+"Angka tidak terbaca, ulang "+retry;
+
+
+
+// langsung ulang
+
+setTimeout(
+
+scan,
+
+300
+
+);
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+
+
+
+async function takePicture(){
+
 
 
 canvas.width =
@@ -295,21 +365,19 @@ canvas.height
 
 
 
-
-// crop area target
-
+// crop target
 
 let crop =
 document.createElement("canvas");
 
 
-let cctx =
+let cc =
 crop.getContext("2d");
 
 
 
 let w =
-canvas.width*0.7;
+canvas.width*0.75;
 
 
 let h =
@@ -323,17 +391,18 @@ crop.height=h;
 
 
 
-cctx.drawImage(
+cc.drawImage(
 
 canvas,
 
 
-canvas.width*0.15,
+canvas.width*0.125,
 
 canvas.height*0.32,
 
 w,
 h,
+
 
 0,
 0,
@@ -347,29 +416,97 @@ h
 
 
 
-// perbesar
+
+
+// preprocessing
+
+
+let img =
+cc.getImageData(
+
+0,
+0,
+
+crop.width,
+crop.height
+
+);
+
+
+
+let d =
+img.data;
+
+
+
+for(
+let i=0;
+i<d.length;
+i+=4
+){
+
+
+let gray =
+(
+d[i]+d[i+1]+d[i+2]
+)/3;
+
+
+
+// threshold adaptif
+
+let value =
+gray>140 ? 255 : 0;
+
+
+
+d[i]=value;
+d[i+1]=value;
+d[i+2]=value;
+
+
+
+}
+
+
+
+cc.putImageData(
+img,
+0,
+0
+);
+
+
+
+
+
+
+
+// upscale besar
 
 let big =
 document.createElement("canvas");
 
 
 big.width =
-crop.width*3;
+crop.width*4;
 
 
 big.height =
-crop.height*3;
+crop.height*4;
 
 
 
-let b =
+let bc =
 big.getContext("2d");
 
 
-b.imageSmoothingEnabled=false;
+
+bc.imageSmoothingEnabled=false;
 
 
-b.drawImage(
+
+bc.drawImage(
 
 crop,
 
@@ -387,8 +524,6 @@ big.height
 
 
 
-// OCR
-
 
 let data =
 await worker.recognize(big);
@@ -396,7 +531,9 @@ await worker.recognize(big);
 
 
 
-let angka=[];
+let best="";
+
+let confidence=0;
 
 
 
@@ -409,13 +546,21 @@ w.text.replace(/\D/g,"");
 
 
 if(
-text &&
-w.confidence>70
+
+text.length>0 &&
+
+w.confidence>confidence
+
 ){
 
-angka.push(text);
+
+best=text;
+
+confidence=w.confidence;
+
 
 }
+
 
 
 });
@@ -425,38 +570,32 @@ angka.push(text);
 
 
 
-if(angka.length){
+// validasi
 
 
-result.innerHTML =
-angka.join(" ");
+if(
+
+best.length>=1 &&
+
+best.length<=6 &&
+
+confidence>=70
+
+){
 
 
-
-}else{
-
-
-result.innerHTML =
-"Tidak terbaca";
-
-
-}
-
-
-
-info.innerHTML =
-"Scan ulang 10 detik";
-
-
-
-setTimeout(
-scan,
-10000
-);
+return best;
 
 
 }
 
+
+
+return null;
+
+
+
+}
 
 
 
